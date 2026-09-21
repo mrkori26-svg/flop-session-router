@@ -74,3 +74,16 @@ An in-tree adapter becomes preferable only if OpenAgentSearch exposes a stable, 
 ## Upstream contribution rule
 
 When a real mismatch is found, reduce it to the smallest reproducible boundary and send that evidence to the project that owns the behavior. Avoid generic promotion, duplicated issues, or claims of adoption before the downstream maintainer independently runs or merges the integration.
+
+## Runtime capability manifests
+
+The Router accepts an optional `flop.capability-manifest/v1` on each candidate. Requests may set `requiredProtocolCapabilities` to make those capabilities a hard eligibility boundary before scoring.
+
+Semantics are deliberately narrow:
+
+- missing or non-`OBSERVED` manifest -> `PROTOCOL_CAPABILITY_UNKNOWN`;
+- observed manifest missing a required capability -> `PROTOCOL_CAPABILITY_UNSUPPORTED`;
+- observed compatible manifest -> candidate proceeds through the existing model, price, preflight, circuit and scoring rules;
+- manifest evidence does not increase assurance, telemetry, reputation, or score.
+
+The Conformance Lab Runtime Observatory can emit this manifest as a sidecar to a runtime evidence bundle. Consumers should keep liveness, compatibility, verification, and long-term reliability as separate facts.
