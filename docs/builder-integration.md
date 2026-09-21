@@ -74,3 +74,31 @@ An in-tree adapter becomes preferable only if OpenAgentSearch exposes a stable, 
 ## Upstream contribution rule
 
 When a real mismatch is found, reduce it to the smallest reproducible boundary and send that evidence to the project that owns the behavior. Avoid generic promotion, duplicated issues, or claims of adoption before the downstream maintainer independently runs or merges the integration.
+
+
+## Capability discovery v1
+
+The Router also supports an in-tree, source-agnostic announcement shape for protocol capability discovery:
+
+```json
+{
+  "schema": "flop.agent-capabilities.v1",
+  "id": "source-agent-id",
+  "did": "did:key:...",
+  "runtime": "implementation-name",
+  "runtimeVersion": "1.2.3",
+  "available": true,
+  "observedAt": "2026-09-21T00:00:00Z",
+  "capabilities": [
+    {
+      "id": "direct-rail-f1",
+      "version": "1",
+      "assurance": "SOFT"
+    }
+  ]
+}
+```
+
+`CapabilityDiscoveryCandidateProvider` still requires an explicit local binding to a `MinerCandidate`; an arbitrary discovery row cannot invent a candidate. Identity mismatches and offline announcements are excluded. Route requests may require protocol capability IDs, exact versions, and minimum assurance before ranking.
+
+Availability remains only liveness. It never upgrades protocol assurance, settlement trust, price comparability, or FLOP runtime compatibility by itself.
