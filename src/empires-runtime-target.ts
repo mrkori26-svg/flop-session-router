@@ -76,3 +76,67 @@ export class EmpiresRuntimeTarget implements RuntimeTarget<EmpiresActionInput> {
     return this.executor(testCase.input, signal);
   }
 }
+
+
+export function createEmpiresHttpExecutor(
+  baseUrl: string,
+  sessionCookie: () => string,
+  fetcher: FetchLike = fetch,
+  pollAttempts = 20,
+  pollDelayMs = 250,
+): EmpiresExecutor {
+  if (!Number.isInteger(pollAttempts) || pollAttempts < 1 || pollAttempts > 100) {
+    throw new Error("EMPIRES_INVALID_POLL_ATTEMPTS");
+  }
+  return async (input, signal) => {
+    const startedAt = new Date().toISOString();
+    if (!input.signedEnvelope) {
+      return {
+        startedAt, finishedAt: new Date().toISOString(), status: "failed",
+        output: { requestId: input.requestId }, reason: "EMPIRES_SIGNED_ENVELOPE_REQUIRED",
+      };
+    }
+    const cookie = sessionCookie();
+    if (!cookie) throw new Error("EMPIRES_SESSION_REQUIRED");
+    const actionResponse = await fetcher(new URL("/api/action", baseUrl).toString(), {
+      method: "POST", redirect: "error", signal,
+      headers: { "content-type": "application/json", "cookie": cookie },
+      body: JSON.stringify(input.signedEnvelope),
+    });
+    const actionBody = await actionResponse.json().catch(() => ({}));
+    if (!actionResponse.ok) {
+      return {
+        startedAt, finishedAt: new Date().toISOString(), status: "failed",
+        output: { action: actionBody }, reason: `EMPIRES_ACTION_HTTP_${actionResponse.status}`,
+      };
+    }
+    for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
+      if (attempt > 0 && pollDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, pollDelayMs));
+      }
+      const receiptResponse = await fetcher(
+        new URL(`/api/receipt/${encodeURIComponent(input.requestId)}`, baseUrl).toString(),
+        { method: "GET", redirect: "error", signal, headers: { "cookie": cookie } },
+      );
+      const receiptBody = await receiptResponse.json().catch(() => ({}));
+      if (receiptResponse.ok && receiptBody && typeof receiptBody === "object"
+          && (receiptBody as Record<string, unknown>).receipt) {
+        return {
+          startedAt, finishedAt: new Date().toISOString(), status: "completed",
+          output: receiptBody,
+          evidenceRefs: [`empires-native-receipt:${input.requestId}`],
+        };
+      }
+      if (receiptResponse.status !== 404) {
+        return {
+          startedAt, finishedAt: new Date().toISOString(), status: "failed",
+          output: { receipt: receiptBody }, reason: `EMPIRES_RECEIPT_HTTP_${receiptResponse.status}`,
+        };
+      }
+    }
+    return {
+      startedAt, finishedAt: new Date().toISOString(), status: "failed",
+      output: { requestId: input.requestId }, reason: "EMPIRES_RECEIPT_NOT_OBSERVED",
+    };
+  };
+}
