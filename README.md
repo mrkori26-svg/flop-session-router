@@ -1,5 +1,9 @@
 # FLOP Session Router
 
+> **FLOP Tools / ROUTE** · [PROVE: Conformance Lab](https://github.com/retardio73-boop/flop-conformance-lab) · [OBSERVE: Control Center](https://github.com/retardio73-boop/flop-control-center)
+>
+> `discover -> route -> execute -> receipt -> verify -> observe`
+
 Deterministic off-chain miner selection, preflight, failover and auditable decision routing for FLOP compute-session tooling.
 
 > **Alpha community project. Not an official FLOP Labs product.**
