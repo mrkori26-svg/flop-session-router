@@ -16,3 +16,4 @@ export * from "./inference-gateway.js";
 export * from "./inference-resource.js";
 export * from "./inference-runtime.js";
 export * from "./inference-server.js";
+export * from "./economic-gate.js";
