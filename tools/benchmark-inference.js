@@ -2,7 +2,7 @@ const endpoint = process.env.FLOP_INFERENCE_URL ?? "http://127.0.0.1:8790/v1/cha
 const count = Number(process.env.FLOP_BENCH_REQUESTS ?? 3);
 const maxTokens = Number(process.env.FLOP_BENCH_MAX_TOKENS ?? 16);
 const body = {
-  model: process.env.FLOP_BENCH_MODEL ?? "gemma3:4b",
+  model: process.env.FLOP_BENCH_MODEL ?? "gemma4:12b",
   messages: [{ role: "user", content: "In one short sentence, explain why deterministic routing matters." }],
   temperature: 0,
   max_tokens: maxTokens

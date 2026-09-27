@@ -1,1 +1,1 @@
-{"model":"gemma3:4b","messages":[{"role":"user","content":"Reply only with api-ok"}],"temperature":0}
+{"model":"gemma4:12b","messages":[{"role":"user","content":"Reply only with api-ok"}],"temperature":0}
