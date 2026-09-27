@@ -40,3 +40,15 @@ test("completed RUN does not imply settlement",async()=>{
   assert.equal(complete,true);
   assert.equal(released,false);
 });
+
+
+test("post-RUN recording failure never releases a completed economic authorization",async()=>{
+  let releaseCalls=0;
+  const wrapped=withEconomicExecutionGate({execute:async()=>({status:"completed"})},{
+    authorize:async()=>({status:"AUTHORIZED",authorizationId:"a3",reservationRef:"lock3"}),
+    markExecutionComplete:async()=>{throw new Error("journal_unavailable");},
+    release:async()=>{releaseCalls++;},
+  });
+  await assert.rejects(wrapped.execute(candidate,request,signal),/ECONOMIC_POST_EXECUTION_RECORDING_FAILED/);
+  assert.equal(releaseCalls,0);
+});
