@@ -18,7 +18,41 @@ async route(request:RouteRequest):Promise<RouteDecision>{if(!request.requestId||
 private persist(request:RouteRequest,candidates:MinerCandidate[],evaluations:CandidateEvaluation[],status:RouteDecision["status"],ranking:string[]=[]):RouteDecision{const capturedAt=this.clock().toISOString();const snapshot={request,candidates,evaluations,config:this.config,routerVersion:ROUTER_VERSION,capturedAt};const d:RouteDecision={decisionId:`decision_${randomUUID()}`,selectedMinerId:ranking[0],status,ranking,snapshot,configHash:sha256(this.config),snapshotHash:sha256(snapshot)};this.repo.saveDecision(d);for(const e of evaluations)this.repo.savePreflight(d.decisionId,e.preflight);this.logger.event("route.decision",{decisionId:d.decisionId,requestId:request.requestId,status,candidateCount:candidates.length,eligibleCount:ranking.length,selectedMinerId:d.selectedMinerId});return d;}
  recordFailedAck(observation:import("./types.js").FailedAckObservation){if(!observation.id||!observation.minerId||!Number.isFinite(Date.parse(observation.observedAt)))throw new Error("INVALID_FAILED_ACK");this.repo.saveFailedAck(observation);this.logger.event("failed_ack.observed",{id:observation.id,minerId:observation.minerId,source:observation.source});}
  replay(id:string):{status:"REPLAY_MATCH"|"DECISION_REPLAY_DIVERGENCE";original:RouteDecision;recomputedRanking:string[]}{const d=this.repo.decision(id);if(!d)throw new Error("DECISION_NOT_FOUND");const ranking=d.snapshot.evaluations.filter(x=>x.eligible).sort((a,b)=>(b.score!.total-a.score!.total)||a.minerId.localeCompare(b.minerId)).map(x=>x.minerId);const snapshotValid=sha256(d.snapshot)===d.snapshotHash;const configValid=sha256(d.snapshot.config)===d.configHash;return {status:JSON.stringify(ranking)===JSON.stringify(d.ranking)&&snapshotValid&&configValid?"REPLAY_MATCH":"DECISION_REPLAY_DIVERGENCE",original:d,recomputedRanking:ranking};}
- async execute(decision:RouteDecision,executor:SessionExecutor):Promise<SessionOutcome>{const attempts:SessionAttempt[]=[];const max=Math.min(decision.snapshot.request.maxAttempts??3,decision.ranking.length);for(let i=0;i<max;i++){const miner=decision.snapshot.candidates.find(x=>x.id===decision.ranking[i])!;const attempt:SessionAttempt={id:`attempt_${randomUUID()}`,decisionId:decision.decisionId,minerId:miner.id,attempt:i+1,startedAt:this.clock().toISOString(),outcome:"attempted"};const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),this.config.preflightTimeoutMs);try{const result=await executor.execute(miner,decision.snapshot.request,ctl.signal);attempt.completedAt=this.clock().toISOString();attempt.outcome=result.status;attempt.retryable=result.retryable;attempt.reason=result.reason;this.recordCircuit(miner.id,result.status==="completed");}catch(e){attempt.completedAt=this.clock().toISOString();attempt.outcome=ctl.signal.aborted?"timed_out":"failed";attempt.retryable=true;attempt.reason=e instanceof Error?e.message:"FAILED";this.recordCircuit(miner.id,false);}finally{clearTimeout(timer);this.repo.saveAttempt(attempt);attempts.push(attempt);}if(attempt.outcome==="completed"){const out={decisionId:decision.decisionId,status:"completed",attempts,selectedMinerId:miner.id}as SessionOutcome;this.repo.saveOutcome(out);return out;}if(!attempt.retryable)break;}const out={decisionId:decision.decisionId,status:attempts.at(-1)?.outcome??"failed",attempts}as SessionOutcome;this.repo.saveOutcome(out);return out;}
+ async execute(decision:RouteDecision,executor:SessionExecutor):Promise<SessionOutcome>{
+  const attempts:SessionAttempt[]=[];
+  const max=Math.min(decision.snapshot.request.maxAttempts??3,decision.ranking.length);
+  for(let i=0;i<max;i++){
+   const miner=decision.snapshot.candidates.find(x=>x.id===decision.ranking[i])!;
+   const attempt:SessionAttempt={id:`attempt_${randomUUID()}`,decisionId:decision.decisionId,minerId:miner.id,attempt:i+1,startedAt:this.clock().toISOString(),outcome:"attempted"};
+   const ctl=new AbortController();
+   let timedOut=false;
+   let timer:ReturnType<typeof setTimeout>|undefined;
+   try{
+    const timeout=new Promise<never>((_,reject)=>{timer=setTimeout(()=>{timedOut=true;ctl.abort();reject(new Error("EXECUTION_TIMEOUT_OUTCOME_UNKNOWN"));},this.config.preflightTimeoutMs);});
+    const result=await Promise.race([executor.execute(miner,decision.snapshot.request,ctl.signal),timeout]);
+    attempt.completedAt=this.clock().toISOString();
+    attempt.outcome=result.status;
+    attempt.retryable=result.retryable;
+    attempt.reason=result.reason;
+    this.recordCircuit(miner.id,result.status==="completed");
+   }catch(e){
+    attempt.completedAt=this.clock().toISOString();
+    attempt.outcome=timedOut?"timed_out":"failed";
+    attempt.retryable=timedOut?false:true;
+    attempt.reason=timedOut?"EXECUTION_TIMEOUT_OUTCOME_UNKNOWN":e instanceof Error?e.message:"FAILED";
+    this.recordCircuit(miner.id,false);
+   }finally{
+    if(timer)clearTimeout(timer);
+    this.repo.saveAttempt(attempt);
+    attempts.push(attempt);
+   }
+   if(attempt.outcome==="completed"){const out={decisionId:decision.decisionId,status:"completed",attempts,selectedMinerId:miner.id}as SessionOutcome;this.repo.saveOutcome(out);return out;}
+   if(!attempt.retryable)break;
+  }
+  const out={decisionId:decision.decisionId,status:attempts.at(-1)?.outcome??"failed",attempts}as SessionOutcome;
+  this.repo.saveOutcome(out);
+  return out;
+ }
  async miners():Promise<{status:"provider_scoped";provider:string;miners:MinerCandidate[]}>{return{status:"provider_scoped",provider:this.provider.name,miners:this.provider.snapshot?await this.provider.snapshot():[]};}
  private recordCircuit(id:string,ok:boolean){const c=this.repo.circuit(id);if(ok)return this.repo.setCircuit(id,0,"CLOSED");const failures=c.failures+1;this.repo.setCircuit(id,failures,failures>=this.config.circuitFailureThreshold?"OPEN":"CLOSED",failures>=this.config.circuitFailureThreshold?this.clock().toISOString():undefined);}
 }

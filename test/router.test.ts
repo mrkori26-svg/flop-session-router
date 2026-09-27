@@ -23,3 +23,31 @@ test("replay detects persisted snapshot tampering even when ranking is unchanged
     assert.equal(s.router.replay(d.decisionId).status,"DECISION_REPLAY_DIVERGENCE");
   }finally{s.clean();}
 });
+
+test("timeout with uncertain remote outcome does not automatically fail over",async()=>{
+  const dir=mkdtempSync(join(tmpdir(),"router-timeout-"));
+  const repo=new RouterRepository(join(dir,"r.db"));
+  const router=new SessionRouter(
+    new StaticCandidateProvider([candidate("a"),candidate("b")]),
+    repo,
+    {...DEFAULT_CONFIG,preflightTimeoutMs:20},
+    ()=>new Date(now),
+  );
+  try{
+    const d=await router.route({...request,maxAttempts:2});
+    let calls=0;
+    const out=await router.execute(d,{execute:async()=>{
+      calls++;
+      await new Promise(resolve=>setTimeout(resolve,60));
+      return {status:"completed"};
+    }});
+    assert.equal(out.status,"timed_out");
+    assert.equal(out.attempts.length,1);
+    assert.equal(out.attempts[0]?.retryable,false);
+    assert.equal(out.attempts[0]?.reason,"EXECUTION_TIMEOUT_OUTCOME_UNKNOWN");
+    assert.equal(calls,1);
+  }finally{
+    repo.close();
+    rmSync(dir,{recursive:true,force:true});
+  }
+});
