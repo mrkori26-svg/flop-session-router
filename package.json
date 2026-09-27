@@ -30,6 +30,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "pack:check": "npm pack --dry-run",
     "package:smoke": "npm run build && node tools/package-smoke.js",
+    "prepare": "npm run build",
     "quickstart": "npm run build && node dist/src/cli.js route --request examples/request.json --candidates examples/candidates.json --db quickstart.db",
     "inference:smoke": "npm run build && node tools/inference-smoke.js",
     "inference:serve": "npm run build && node tools/serve-inference.js",
