@@ -11,3 +11,15 @@ test("retry bounded and circuit opens",async()=>{const s=setup([candidate("a"),c
 test("typed signing boundary and ephemeral signer",async()=>{assert.throws(()=>validateSignRequest("bad" as any,"session",{}),/INVALID/);assert.throws(()=>validateSignRequest("FLOP_ROUTER_SESSION_V1","session",{x:Infinity}),/NON_CANONICAL/);const r=validateSignRequest("FLOP_ROUTER_DECISION_V1","decision",{id:"d"});assert.ok((await new EphemeralSigner().sign(r)).signature);});
 test("maxLatencyMs is a hard constraint",async()=>{const s=setup([candidate("slow",{telemetry:{latencyMsEwma:201}}),candidate("unknown",{telemetry:undefined}),candidate("fast",{telemetry:{latencyMsEwma:50}})]);try{const d=await s.router.route({...request,constraints:{...request.constraints,maxLatencyMs:100}});assert.deepEqual(d.ranking,["fast"]);assert.deepEqual(d.snapshot.evaluations.find(x=>x.minerId==="slow")!.rejectionReasons,["LATENCY_EXCEEDS_MAXIMUM"]);assert.deepEqual(d.snapshot.evaluations.find(x=>x.minerId==="unknown")!.rejectionReasons,["INSUFFICIENT_CAPABILITY_DATA"]);}finally{s.clean();}});
 test("session outcome and preflight observations persist",async()=>{const s=setup([candidate("a")]);try{const d=await s.router.route(request);assert.equal(s.repo.preflights(d.decisionId).length,1);const out=await s.router.execute(d,{execute:async()=>({status:"completed"})});assert.deepEqual(s.repo.outcome(d.decisionId),JSON.parse(JSON.stringify(out)));}finally{s.clean();}});
+
+
+test("replay detects persisted snapshot tampering even when ranking is unchanged",async()=>{
+  const s=setup([candidate("a"),candidate("b")]);
+  try{
+    const d=await s.router.route(request);
+    const tampered=structuredClone(d);
+    tampered.snapshot.capturedAt="2026-09-07T00:00:01.000Z";
+    (s.repo as any).db.prepare("UPDATE decisions SET body=? WHERE id=?").run(JSON.stringify(tampered),d.decisionId);
+    assert.equal(s.router.replay(d.decisionId).status,"DECISION_REPLAY_DIVERGENCE");
+  }finally{s.clean();}
+});

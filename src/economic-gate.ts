@@ -18,18 +18,23 @@ export function withEconomicExecutionGate(executor: SessionExecutor, gate: Econo
       if (authorization.status === "BLOCKED") {
         return { status: "failed", retryable: true, reason: `ECONOMIC_GATE_BLOCKED:${authorization.reason}` };
       }
+      let result;
       try {
-        const result = await executor.execute(candidate, request, signal);
-        if (result.status === "completed") {
-          await gate.markExecutionComplete?.(authorization);
-          return result;
-        }
-        await gate.release?.(authorization, result.reason ?? "execution_failed");
-        return result;
+        result = await executor.execute(candidate, request, signal);
       } catch (error) {
         await gate.release?.(authorization, error instanceof Error ? error.message : "execution_error");
         throw error;
       }
+      if (result.status === "completed") {
+        try {
+          await gate.markExecutionComplete?.(authorization);
+        } catch (error) {
+          throw new Error("ECONOMIC_POST_EXECUTION_RECORDING_FAILED", { cause: error });
+        }
+        return result;
+      }
+      await gate.release?.(authorization, result.reason ?? "execution_failed");
+      return result;
     },
   };
 }
