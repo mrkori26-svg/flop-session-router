@@ -1,12 +1,12 @@
 import { InferenceGateway, OllamaWorker } from "../dist/src/inference-gateway.js";
 const worker = new OllamaWorker({
   id: "ollama-local",
-  models: ["gemma3:4b"],
+  models: ["gemma4:12b"],
   timeoutMs: 120000
 });
 const gateway = new InferenceGateway([worker]);
 const result = await gateway.generate({
-  model: "gemma3:4b",
+  model: "gemma4:12b",
   messages: [{ role: "user", content: "Reply with exactly: gateway-ok" }],
   temperature: 0
 });

@@ -20,7 +20,7 @@ if (process.platform === "win32" && process.env.FLOP_LOWER_OLLAMA_PRIORITY !== "
   } catch {}
 }
 
-const models = (process.env.FLOP_INFERENCE_MODELS ?? "gemma3:4b").split(",").map((v) => v.trim()).filter(Boolean);
+const models = (process.env.FLOP_INFERENCE_MODELS ?? "gemma4:12b").split(",").map((v) => v.trim()).filter(Boolean);
 const worker = new OllamaWorker({ id: "ollama-local", models, keepAlive: process.env.FLOP_OLLAMA_KEEP_ALIVE ?? "2m" });
 const gateway = new InferenceGateway([worker]);
 const policy = {
