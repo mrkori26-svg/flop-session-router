@@ -102,7 +102,8 @@ export class OpenAICompatibleWorker implements InferenceWorker {
   async health(): Promise<WorkerHealth> {
     const started = performance.now();
     try {
-      const response = await fetch(`${this.baseUrl}/v1/models`, { headers: this.headers(), signal: AbortSignal.timeout(this.timeoutMs) });
+      const suffix = this.baseUrl.endsWith("/v1") || this.baseUrl.endsWith("/openai") ? "" : "/v1";
+      const response = await fetch(`${this.baseUrl}${suffix}/models`, { headers: this.headers(), signal: AbortSignal.timeout(this.timeoutMs) });
       return { ok: response.ok, latencyMs: performance.now() - started, checkedAt: new Date().toISOString(), reason: response.ok ? undefined : `HTTP_${response.status}` };
     } catch (error) {
       return { ok: false, latencyMs: performance.now() - started, checkedAt: new Date().toISOString(), reason: String(error) };
@@ -110,7 +111,8 @@ export class OpenAICompatibleWorker implements InferenceWorker {
   }
 
   async *stream(request: InferenceRequest): AsyncIterable<InferenceChunk> {
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    const suffix = this.baseUrl.endsWith("/v1") || this.baseUrl.endsWith("/openai") ? "" : "/v1";
+    const response = await fetch(`${this.baseUrl}${suffix}/chat/completions`, {
       method: "POST", headers: this.headers(), signal: AbortSignal.timeout(this.timeoutMs),
       body: JSON.stringify({ model: request.model, messages: request.messages, temperature: request.temperature, max_tokens: request.maxTokens, stream: true })
     });
