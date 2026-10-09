@@ -1,4 +1,4 @@
-﻿export * from "./types.js";
+export * from "./types.js";
 export * from "./providers.js";
 export * from "./preflight.js";
 export * from "./router.js";
@@ -17,3 +17,6 @@ export * from "./inference-resource.js";
 export * from "./inference-runtime.js";
 export * from "./inference-server.js";
 export * from "./economic-gate.js";
+
+export * from "./execution-outcome.js";
+export * from "./flop-testnet.js";

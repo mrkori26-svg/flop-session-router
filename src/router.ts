@@ -1,3 +1,4 @@
+import { ExecutionOutcomeUnknownError } from "./execution-outcome.js";
 import { randomUUID } from "node:crypto";
 import { sha256,round } from "./canonical.js";
 import { preflightMany } from "./preflight.js";
@@ -19,6 +20,9 @@ private persist(request:RouteRequest,candidates:MinerCandidate[],evaluations:Can
  recordFailedAck(observation:import("./types.js").FailedAckObservation){if(!observation.id||!observation.minerId||!Number.isFinite(Date.parse(observation.observedAt)))throw new Error("INVALID_FAILED_ACK");this.repo.saveFailedAck(observation);this.logger.event("failed_ack.observed",{id:observation.id,minerId:observation.minerId,source:observation.source});}
  replay(id:string):{status:"REPLAY_MATCH"|"DECISION_REPLAY_DIVERGENCE";original:RouteDecision;recomputedRanking:string[]}{const d=this.repo.decision(id);if(!d)throw new Error("DECISION_NOT_FOUND");const ranking=d.snapshot.evaluations.filter(x=>x.eligible).sort((a,b)=>(b.score!.total-a.score!.total)||a.minerId.localeCompare(b.minerId)).map(x=>x.minerId);const snapshotValid=sha256(d.snapshot)===d.snapshotHash;const configValid=sha256(d.snapshot.config)===d.configHash;return {status:JSON.stringify(ranking)===JSON.stringify(d.ranking)&&snapshotValid&&configValid?"REPLAY_MATCH":"DECISION_REPLAY_DIVERGENCE",original:d,recomputedRanking:ranking};}
  async execute(decision:RouteDecision,executor:SessionExecutor):Promise<SessionOutcome>{
+  // An uncertain previous submission cannot become safe merely by calling execute again.
+  const previous=this.repo.outcome(decision.decisionId);
+  if(previous&&(previous.status==="outcome_unknown"||(previous.status==="timed_out"&&previous.attempts.at(-1)?.reason==="EXECUTION_TIMEOUT_OUTCOME_UNKNOWN")))return previous;
   const attempts:SessionAttempt[]=[];
   const max=Math.min(decision.snapshot.request.maxAttempts??3,decision.ranking.length);
   for(let i=0;i<max;i++){
@@ -37,8 +41,9 @@ private persist(request:RouteRequest,candidates:MinerCandidate[],evaluations:Can
     this.recordCircuit(miner.id,result.status==="completed");
    }catch(e){
     attempt.completedAt=this.clock().toISOString();
-    attempt.outcome=timedOut?"timed_out":"failed";
-    attempt.retryable=timedOut?false:true;
+    const unknown=e instanceof ExecutionOutcomeUnknownError;
+    attempt.outcome=timedOut?"timed_out":unknown?"outcome_unknown":"failed";
+    attempt.retryable=!(timedOut||unknown);
     attempt.reason=timedOut?"EXECUTION_TIMEOUT_OUTCOME_UNKNOWN":e instanceof Error?e.message:"FAILED";
     this.recordCircuit(miner.id,false);
    }finally{

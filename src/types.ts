@@ -1,6 +1,6 @@
 export type AssuranceTier = "SOFT" | "HARD" | "UNKNOWN";
 export type CircuitState = "CLOSED" | "OPEN" | "HALF_OPEN";
-export type OutcomeState = "selected" | "attempted" | "acknowledged" | "active" | "completed" | "failed" | "timed_out" | "cancelled" | "runtime_unavailable";
+export type OutcomeState = "selected" | "attempted" | "acknowledged" | "active" | "completed" | "failed" | "timed_out" | "cancelled" | "runtime_unavailable" | "outcome_unknown";
 
 export interface EvidenceProvenance { source: string; sourceVersion?: string; evidenceRef?: string; verificationState?: "ASSERTED" | "OBSERVED" | "CRYPTOGRAPHICALLY_VERIFIED" | "INDEPENDENTLY_VERIFIED" | "ECONOMICALLY_VERIFIED" | "INVALID" | "CONTRADICTORY" | "UNKNOWN"; coverage?: "COMPLETE" | "PARTIAL" | "TRUNCATED" | "RETENTION_GAP" | "UNKNOWN"; observedAt?: string; eventTime?: string; }
 

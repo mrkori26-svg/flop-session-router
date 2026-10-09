@@ -1,3 +1,4 @@
+import { ExecutionOutcomeUnknownError } from "./execution-outcome.js";
 export interface ChatMessage { role: "system" | "user" | "assistant"; content: string; }
 export interface InferenceRequest { model: string; messages: ChatMessage[]; temperature?: number; maxTokens?: number; }
 export interface InferenceChunk { text: string; done: boolean; }
@@ -53,11 +54,15 @@ export class InferenceGateway {
       const started = performance.now();
       let firstAt: number | undefined;
       let text = "";
+      let completed = false;
       try {
         for await (const chunk of worker.stream(request)) {
+          if (typeof chunk.text !== "string" || typeof chunk.done !== "boolean" || completed) throw new Error("INVALID_INFERENCE_CHUNK");
+          completed = chunk.done;
           if (chunk.text && firstAt === undefined) firstAt = performance.now();
           text += chunk.text;
         }
+        if (!completed) throw new Error("INFERENCE_STREAM_INCOMPLETE");
         const ended = performance.now();
         const ttftMs = (firstAt ?? ended) - started;
         const latencyMs = ended - started;
@@ -68,7 +73,11 @@ export class InferenceGateway {
         metrics.latencyMsEwma = ewma(metrics.latencyMsEwma, latencyMs);
         metrics.tokensPerSecondEwma = ewma(metrics.tokensPerSecondEwma, tokensPerSecond);
         return { workerId: worker.id, text, ttftMs, latencyMs, outputTokensEstimate, tokensPerSecond };
-      } catch (error) { metrics.failures += 1; lastError = error; }
+      } catch (error) {
+        metrics.failures += 1;
+        // Once inference is submitted, a transport failure cannot prove non-execution.
+        throw new ExecutionOutcomeUnknownError("INFERENCE_EXECUTION_OUTCOME_UNKNOWN", { cause: error });
+      }
       finally { metrics.active -= 1; }
     }
     throw new Error(`ALL_INFERENCE_WORKERS_FAILED:${String(lastError)}`);
@@ -118,29 +127,38 @@ export class OpenAICompatibleWorker implements InferenceWorker {
     });
     if (!response.ok || !response.body) throw new Error(`INFERENCE_HTTP_${response.status}`);
     const reader = response.body.getReader();
-    const decoder = new TextDecoder();
+    const decoder = new TextDecoder("utf-8", { fatal: true });
     let buffer = "";
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let boundary = buffer.indexOf("\n\n");
-      while (boundary >= 0) {
-        const event = buffer.slice(0, boundary); buffer = buffer.slice(boundary + 2);
-        for (const line of event.split(/\r?\n/)) {
-          if (!line.startsWith("data:")) continue;
-          const payload = line.slice(5).trim();
-          if (!payload || payload === "[DONE]") continue;
-          const json = JSON.parse(payload) as { choices?: { delta?: { content?: string } }[] };
-          const text = json.choices?.[0]?.delta?.content ?? "";
-          if (text) yield { text, done: false };
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) throw new Error("INFERENCE_STREAM_INCOMPLETE");
+        buffer += decoder.decode(value, { stream: true });
+        if (buffer.length > 1024 * 1024) throw new Error("INFERENCE_EVENT_TOO_LARGE");
+        let boundary = /\r?\n\r?\n/.exec(buffer);
+        while (boundary) {
+          const event = buffer.slice(0, boundary.index);
+          buffer = buffer.slice(boundary.index + boundary[0].length);
+          const payload = event.split(/\r?\n/).filter(line => line.startsWith("data:"))
+            .map(line => line.slice(5).trimStart()).join("\n");
+          if (payload === "[DONE]") { yield { text: "", done: true }; return; }
+          if (payload) {
+            const json = JSON.parse(payload);
+            if (!json || typeof json !== "object" || json.error || !Array.isArray(json.choices)) throw new Error("INVALID_INFERENCE_EVENT");
+            const content = json.choices[0]?.delta?.content;
+            if (content !== undefined && content !== null && typeof content !== "string") throw new Error("INVALID_INFERENCE_CONTENT");
+            if (content) yield { text: content, done: false };
+          }
+          boundary = /\r?\n\r?\n/.exec(buffer);
         }
-        boundary = buffer.indexOf("\n\n");
       }
+    } finally {
+      await reader.cancel().catch(() => undefined);
+      reader.releaseLock();
     }
-    yield { text: "", done: true };
   }
 }
+
 export interface OllamaWorkerOptions {
   id: string;
   baseUrl?: string;

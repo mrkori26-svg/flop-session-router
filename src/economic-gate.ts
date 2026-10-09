@@ -1,3 +1,4 @@
+import { ExecutionOutcomeUnknownError } from "./execution-outcome.js";
 import type { MinerCandidate, RouteRequest } from "./types.js";
 import type { SessionExecutor } from "./router.js";
 
@@ -22,14 +23,13 @@ export function withEconomicExecutionGate(executor: SessionExecutor, gate: Econo
       try {
         result = await executor.execute(candidate, request, signal);
       } catch (error) {
-        await gate.release?.(authorization, error instanceof Error ? error.message : "execution_error");
-        throw error;
+        throw new ExecutionOutcomeUnknownError("ECONOMIC_EXECUTION_OUTCOME_UNKNOWN", { cause: error });
       }
       if (result.status === "completed") {
         try {
           await gate.markExecutionComplete?.(authorization);
         } catch (error) {
-          throw new Error("ECONOMIC_POST_EXECUTION_RECORDING_FAILED", { cause: error });
+          throw new ExecutionOutcomeUnknownError("ECONOMIC_POST_EXECUTION_RECORDING_FAILED", { cause: error });
         }
         return result;
       }
