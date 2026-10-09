@@ -103,3 +103,9 @@ Try the read-only synthetic demo with `python server_public.py --demo`. The curr
 - [OpenAgentSearch](https://github.com/djd39448/openagentsearch/tree/b0b05e76d086eb4c1f9d2a2502afc16802d12804/integrations/flop-session-router) — externally maintained `MinerCandidateProvider`, independently reproduced by this repository against Router `dba6525554c4ea5965ef6dd23e93194736aa0ef3`. The adapter stays downstream; see [docs/builder-integration.md](docs/builder-integration.md).
 
 Automated agents can start at [`AGENTS.md`](AGENTS.md), [`SKILL.md`](SKILL.md), or [`llms.txt`](llms.txt).
+
+## Durable FLOP inference buyer
+
+The existing Router now exposes `FlopInferenceBuyer` and noninteractive `buyer-*` CLI commands. It provides a durable queue, cumulative budgets, nonce/account serialization, checked state transitions, crash recovery and separate execution/settlement verification gates. Production discovery, signing and transport remain explicitly blocked until official SDK/runtime interfaces and the restricted custody operation are available. No simulator transport ships as a production fallback; local fixtures live only in tests.
+
+See [buyer configuration and operation](docs/flop-inference-buyer.md). Purchases default off; mainnet spending is prohibited.

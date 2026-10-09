@@ -1,0 +1,13 @@
+{
+  "enabled": false,
+  "environment": "TESTNET",
+  "allowedEnvironments": ["TESTNET"],
+  "controlledMinerAccounts": [],
+  "maxConcurrent": 1,
+  "maxLatencyMs": 30000,
+  "networkTimeoutMs": 10000,
+  "leaseMs": 120000,
+  "maxAttempts": 3,
+  "circuitFailureThreshold": 3,
+  "circuitCooldownMs": 60000
+}

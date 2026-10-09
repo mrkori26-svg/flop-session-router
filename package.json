@@ -19,7 +19,9 @@
     "LICENSE",
     "SECURITY.md",
     "protocol-compat.json",
-    "openapi.json"
+    "openapi.json",
+    "docs/FLOP_TESTNET_BUYER.md",
+    "docs/flop-inference-buyer.md"
   ],
   "engines": {
     "node": ">=22.13"

@@ -1,9 +1,11 @@
+import { FlopBuyerStore } from "./flop-buyer-store.js";
 import { DatabaseSync } from "node:sqlite";
 import type { FailedAckObservation, PreflightResult, RouteDecision, SessionAttempt, SessionOutcome } from "./types.js";
 
 export class RouterRepository {
   private db: DatabaseSync;
-  constructor(path = "router.db") { this.db = new DatabaseSync(path); this.migrate(); }
+  readonly buyer: FlopBuyerStore;
+  constructor(path = "router.db", clock:()=>Date=()=>new Date()) { this.db = new DatabaseSync(path); this.migrate(); this.buyer=new FlopBuyerStore(this.db,clock); }
   private migrate() { this.db.exec(`PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY); CREATE TABLE IF NOT EXISTS decisions(id TEXT PRIMARY KEY, body TEXT NOT NULL, created_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS failed_acks(id TEXT PRIMARY KEY, miner_id TEXT NOT NULL, body TEXT NOT NULL, observed_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS circuit(miner_id TEXT PRIMARY KEY, failures INTEGER NOT NULL, state TEXT NOT NULL, opened_at TEXT); CREATE TABLE IF NOT EXISTS attempts(id TEXT PRIMARY KEY, decision_id TEXT NOT NULL, body TEXT NOT NULL); CREATE TABLE IF NOT EXISTS session_outcomes(decision_id TEXT PRIMARY KEY, body TEXT NOT NULL); CREATE TABLE IF NOT EXISTS preflight_observations(decision_id TEXT NOT NULL, miner_id TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY(decision_id,miner_id)); INSERT OR IGNORE INTO schema_migrations(version) VALUES(1); INSERT OR IGNORE INTO schema_migrations(version) VALUES(2);`); }
   saveDecision(d: RouteDecision) { this.db.prepare("INSERT INTO decisions VALUES(?,?,?)").run(d.decisionId, JSON.stringify(d), d.snapshot.capturedAt); }
   decision(id: string): RouteDecision | undefined { const r=this.db.prepare("SELECT body FROM decisions WHERE id=?").get(id) as {body:string}|undefined; return r ? JSON.parse(r.body) : undefined; }
