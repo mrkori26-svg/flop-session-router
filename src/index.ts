@@ -11,6 +11,7 @@ export * from "./observability.js";
 export * from "./tclk-provisional.js";
 
 export * from "./external-discovery-provider.js";
+export * from "./official-flop-discovery.js";
 export * from "./capability-discovery-provider.js";
 export * from "./inference-gateway.js";
 export * from "./inference-resource.js";
@@ -26,3 +27,5 @@ export * from "./flop-buyer-store.js";
 export * from "./flop-inference-buyer.js";
 export * from "./flop-buyer-upstream.js";
 export * from "./flop-buyer-signer.js";
+export * from "./inference-attribution-evidence.js";
+export * from "./settlement-evidence.js";

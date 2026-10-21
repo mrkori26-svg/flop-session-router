@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { assessSettlementEvidence } from "./settlement-evidence.js";
 import { sha256 } from "./canonical.js";
 import { loadBuyerConfig, validateBuyerRequest, buyerAmount, buyerHex } from "./flop-buyer-config.js";
 import { loadFlopTestnetConfig, prepareFlopChannel } from "./flop-testnet.js";
@@ -50,7 +51,19 @@ export class FlopInferenceBuyer {
     executionProofDigest:job.observation?.executionProof===undefined?undefined:sha256(job.observation.executionProof),
     settlementProofDigest:job.observation?.settlementProof===undefined?undefined:sha256(job.observation.settlementProof),
     transactionHash:job.signed?.transactionHash,finalizedBlockHash:job.observation?.finalizedBlockHash,evidenceRefs:job.observation?.evidenceRefs??[],
-    chargedBaseUnits:job.chargedBaseUnits,audit:this.repository.buyer.audit(this.scope)};}
+    chargedBaseUnits:job.chargedBaseUnits,audit:this.repository.buyer.audit(this.scope),
+    // This is a separate provisional attribution verdict, not an authorization or confirmed reward.
+    attributionAssessment:assessSettlementEvidence({
+      requestingDid:undefined,
+      payerAccount:job.binding?.agentAccount,
+      creditedAccount:undefined,
+      finalizedOnChainProof:job.state==="SETTLED"&&!!job.observation?.finalizedBlockHash,
+      outcome:job.state==="SETTLED"?"SETTLED":"PENDING",
+      transcriptPublished:undefined,
+      beneficiaryRegistrationVerified:false,
+      unlockCreditProofVerified:false,
+      officialRuleForThisCaseVerified:false
+    })};}
   private async call<T>(fn:(signal:AbortSignal)=>Promise<T>,signal:AbortSignal):Promise<T> {
     const ctl=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;
     if(signal.aborted)throw new BuyerFault("CONTROLLER_ABORTED",true);
