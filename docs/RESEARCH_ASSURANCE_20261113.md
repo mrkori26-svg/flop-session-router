@@ -100,14 +100,25 @@ Different dimensions cannot be added. Identical measurements for the same domain
 scope/dimension under another transport record ID are counted once. Different values for the same
 invocation remain UNKNOWN pending explicit correction. True retries require a new invocation ID.
 
-## Final verification
+## Initial canonical-checkout verification
 Both npm run check commands exited 0 after the final changes.
 Router 149/149; Lab 348/348; 0 failures and 0 skipped tests.
 Four producer/consumer compatibility and mutation checks passed.
 Both package smoke checks and BACKGROUND_RUNTIME_POLICY_PASS passed.
 Source hashes and logs: ../artifacts/research-hardening-20261113/.
-No commit, push, live transaction or service restart was performed.
+At that initial checkpoint, no commit, push, live transaction or service restart had been performed.
 Existing unrelated changes were preserved. Compiled CLI/export APIs are available;
 already running Node workers need a controlled restart to load changed modules.
 Full formal proofs, CertClaim calibration, live gateway benchmarking and ANS adoption
 remain outside the implemented local scope and are not claimed complete.
+
+## Clean-source integration update
+The selected source changes have now been committed with unrelated local changes retained.
+A fresh extraction of tracked sources passed all six component check commands.
+Portable-source totals: Receipt 20 passed, economic runtime 50 passed, Router 100 passed,
+Lab 338 passed and one skipped, agent 42 passed, Control Center 72 passed (622 passed total).
+The Lab skip requires a separate external Task Relay checkout; that integration is unverified.
+The earlier canonical totals include additional existing local work and are not portable-source totals.
+The running agent and Control Center were reloaded. A synthetic receipt.verify request completed;
+artifact integrity passed and settlement remained UNKNOWN, with no value moved.
+Public source branches/releases are prepared and await explicit publication approval.
