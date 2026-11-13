@@ -20,6 +20,8 @@ export function triageInferenceAttribution(input: EconomicAttributionEvidence): 
   if (input.finalizedSettlementProofVerified !== true) reasons.push("SETTLEMENT_UNVERIFIED");
   if (input.executionProofVerified !== true) reasons.push("EXECUTION_UNVERIFIED");
   if (input.attributionRuleOfficiallyVerified !== true) reasons.push("ATTRIBUTION_RULE_UNVERIFIED");
+  if (input.creditedAccount && input.expectedCreditedAccount && input.creditedAccount !== input.expectedCreditedAccount)
+    return { verdict:"FAIL", reasons:["CREDIT_ACCOUNT_MISMATCH", ...reasons], eligibleForRewardClaim:false };
   if (reasons.length) return { verdict:"UNKNOWN", reasons, eligibleForRewardClaim:false };
   if (input.creditedAccount !== input.expectedCreditedAccount)
     return { verdict:"FAIL", reasons:["CREDIT_ACCOUNT_MISMATCH"], eligibleForRewardClaim:false };

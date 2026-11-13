@@ -7,3 +7,5 @@ test("missing gateway attribution rule is UNKNOWN",()=>{assert.equal(triageInfer
 test("incomplete principal identity is UNKNOWN",()=>{assert.equal(triageInferenceAttribution({...base,requestingDid:undefined}).verdict,"UNKNOWN");});
 test("verified misattribution is FAIL",()=>{assert.equal(triageInferenceAttribution({...base,creditedAccount:"gateway"}).verdict,"FAIL");});
 test("complete evidence passes only local triage, never grants reward eligibility",()=>{assert.deepEqual(triageInferenceAttribution(base),{verdict:"PASS",reasons:[],eligibleForRewardClaim:false});});
+
+test("known credit mismatch is FAIL even if another prerequisite is unavailable",()=>{assert.equal(triageInferenceAttribution({...base,creditedAccount:"wrong",executionProofVerified:false}).verdict,"FAIL");});

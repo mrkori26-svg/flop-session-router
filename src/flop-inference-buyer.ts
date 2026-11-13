@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { buildResearchEvidence } from "./research-evidence.js";
 import { assessSettlementEvidence } from "./settlement-evidence.js";
 import { sha256 } from "./canonical.js";
 import { loadBuyerConfig, validateBuyerRequest, buyerAmount, buyerHex } from "./flop-buyer-config.js";
@@ -46,6 +47,8 @@ export class FlopInferenceBuyer {
       state:"QUEUED",version:0,attempts:0,createdAt:now,updatedAt:now,reservedBaseUnits:"0",chargedBaseUnits:"0"});
   }
   inspect(id:string){const job=this.repository.buyer.job(id);if(job&&job.scope!==this.scope)throw new Error("BUYER_SCOPE_MISMATCH");return job;}
+  /** Explicit private export for independent offline Lab recheck; not an economic operation. */
+  retainedEvidence(id:string){const job=this.inspect(id);return job?buildResearchEvidence(job):undefined;}
   evidence(id:string){const job=this.inspect(id);if(!job)return undefined;return {schema:"flop-router/buyer-evidence/v1",jobId:job.id,requestHash:job.requestHash,decisionId:job.decisionId,
     state:job.state,verificationBoundary:this.transport.readiness().kind==="LOCAL_TEST"?"LOCAL_TEST_LOGIC_ONLY":"CONFIGURED_EXTERNAL_VERIFIER",
     executionProofDigest:job.observation?.executionProof===undefined?undefined:sha256(job.observation.executionProof),
