@@ -54,5 +54,9 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "@flop-labs/client": "0.2.1",
+    "@flop-labs/sdk": "0.4.0"
   }
 }
